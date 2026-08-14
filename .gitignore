@@ -1,0 +1,18 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.venv/
+venv/
+env/
+
+# CertWatch runtime output
+*.jsonl
+!tests/fixtures/*.jsonl
+
+# OS / editor
+.DS_Store
+*.swp
+.idea/
+.vscode/

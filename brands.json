@@ -1,0 +1,117 @@
+{
+  "paypal": {
+    "tokens": ["paypal", "pypl"],
+    "legitimate": ["paypal.com", "paypalobjects.com", "paypal.me", "paypal-corp.com"],
+    "weight": 1.0
+  },
+  "microsoft": {
+    "tokens": ["microsoft", "office365", "office", "outlook", "onedrive", "msft", "windows", "azure"],
+    "legitimate": ["microsoft.com", "office.com", "office365.com", "outlook.com", "live.com", "microsoftonline.com", "windows.net", "azure.com", "sharepoint.com", "onedrive.com", "azure-api.net", "azurewebsites.net", "azureedge.net", "trafficmanager.net", "microsoft-int.com", "azure-int.net", "cloudapp.net", "azurecontainer.io", "msidentity.com", "azure.net", "windowsazure.com"],
+    "weight": 1.0
+  },
+  "google": {
+    "tokens": ["google", "gmail", "gcloud", "googlemail"],
+    "legitimate": ["google.com", "gmail.com", "googlemail.com", "googleusercontent.com", "gstatic.com", "google.co.uk", "youtube.com", "goo.gl", "withgoogle.com", "cloud.goog", "goog", "gvt1.com", "gvt2.com", "appspot.com", "googleapis.com"],
+    "weight": 1.0
+  },
+  "apple": {
+    "tokens": ["apple", "icloud", "itunes", "appleid"],
+    "legitimate": ["apple.com", "icloud.com", "itunes.com", "me.com", "mac.com", "apple.co", "cdn-apple.com"],
+    "weight": 1.0
+  },
+  "amazon": {
+    "tokens": ["amazon", "aws", "prime", "awscloud"],
+    "legitimate": ["amazon.com", "amazon.co.uk", "amazonaws.com", "aws.amazon.com", "amazon.de", "media-amazon.com", "primevideo.com", "amazon.jobs", "cloudfront.net", "awsstatic.com", "aws.dev", "amazontrust.com"],
+    "weight": 1.0
+  },
+  "meta": {
+    "tokens": ["facebook", "instagram", "meta", "whatsapp", "messenger", "fbcdn"],
+    "legitimate": ["facebook.com", "instagram.com", "meta.com", "whatsapp.com", "messenger.com", "fb.com", "fbcdn.net", "fbsbx.com"],
+    "weight": 1.0
+  },
+  "netflix": {
+    "tokens": ["netflix", "nflx"],
+    "legitimate": ["netflix.com", "nflxvideo.net", "nflximg.net", "nflxext.com"],
+    "weight": 0.9
+  },
+  "chase": {
+    "tokens": ["chase", "jpmorgan", "jpmc"],
+    "legitimate": ["chase.com", "jpmorganchase.com", "jpmorgan.com", "chase.co.uk"],
+    "weight": 1.0
+  },
+  "bankofamerica": {
+    "tokens": ["bankofamerica", "bofa", "bankamerica"],
+    "legitimate": ["bankofamerica.com", "bofa.com", "bankofamerica.co.uk", "mbna.com"],
+    "weight": 1.0
+  },
+  "wellsfargo": {
+    "tokens": ["wellsfargo", "wellsfargobank"],
+    "legitimate": ["wellsfargo.com", "wf.com", "wellsfargomedia.com"],
+    "weight": 1.0
+  },
+  "citibank": {
+    "tokens": ["citibank", "citigroup", "citi"],
+    "legitimate": ["citi.com", "citibank.com", "citigroup.com", "citibankonline.com"],
+    "weight": 1.0
+  },
+  "hsbc": {
+    "tokens": ["hsbc"],
+    "legitimate": ["hsbc.com", "hsbc.co.uk", "hsbc.ca", "us.hsbc.com"],
+    "weight": 1.0
+  },
+  "dhl": {
+    "tokens": ["dhl"],
+    "legitimate": ["dhl.com", "dhl.de", "dhlexpress.com", "dhl.co.uk"],
+    "weight": 1.0
+  },
+  "fedex": {
+    "tokens": ["fedex"],
+    "legitimate": ["fedex.com", "fedex.co.uk", "fedexoffice.com"],
+    "weight": 1.0
+  },
+  "usps": {
+    "tokens": ["usps", "uspostal"],
+    "legitimate": ["usps.com", "usps.gov", "uspsoig.gov"],
+    "weight": 1.0
+  },
+  "ups": {
+    "tokens": ["ups", "upsground"],
+    "legitimate": ["ups.com", "ups.co.uk", "upscapital.com"],
+    "weight": 0.8
+  },
+  "coinbase": {
+    "tokens": ["coinbase"],
+    "legitimate": ["coinbase.com", "coinbase-corp.com", "cbhq.net"],
+    "weight": 1.0
+  },
+  "binance": {
+    "tokens": ["binance"],
+    "legitimate": ["binance.com", "binance.us", "binance.org", "bnbstatic.com"],
+    "weight": 1.0
+  },
+  "metamask": {
+    "tokens": ["metamask"],
+    "legitimate": ["metamask.io", "metamask.zendesk.com"],
+    "weight": 1.0
+  },
+  "okta": {
+    "tokens": ["okta"],
+    "legitimate": ["okta.com", "okta-emea.com", "oktacdn.com", "oktapreview.com"],
+    "weight": 1.0
+  },
+  "docusign": {
+    "tokens": ["docusign"],
+    "legitimate": ["docusign.com", "docusign.net", "docusign.co.uk"],
+    "weight": 1.0
+  },
+  "linkedin": {
+    "tokens": ["linkedin"],
+    "legitimate": ["linkedin.com", "licdn.com", "linkedin.cn"],
+    "weight": 0.9
+  },
+  "steam": {
+    "tokens": ["steam", "steamcommunity", "steampowered"],
+    "legitimate": ["steampowered.com", "steamcommunity.com", "steamstatic.com", "valvesoftware.com"],
+    "weight": 0.9
+  }
+}

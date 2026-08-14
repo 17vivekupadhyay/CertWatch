@@ -1,0 +1,8 @@
+flask>=3.0
+flask-socketio>=5.3
+requests>=2.31
+cryptography>=42.0
+idna>=3.6
+tldextract>=5.1
+python-Levenshtein>=0.25
+websocket-client>=1.7
