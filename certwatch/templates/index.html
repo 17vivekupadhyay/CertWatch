@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CertWatch — CT phishing radar</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='vendor/leaflet.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16'><rect width='16' height='16' fill='%23121620'/><g fill='%23e6ded0'><rect x='2' y='2' width='1' height='12'/><rect x='4' y='2' width='2' height='12'/><rect x='7' y='2' width='1' height='12'/><rect x='9' y='2' width='1' height='12'/><rect x='11' y='2' width='2' height='12'/></g><rect x='2' y='7' width='11' height='2' fill='%23cf3b34'/></svg>">
+</head>
+<body>
+<div id="app">
+  <header class="masthead">
+    <div class="wordmark">
+      <svg class="barcode" width="34" height="40" viewBox="0 0 34 40" aria-hidden="true">
+        <rect width="34" height="40" fill="none"/>
+        <g fill="currentColor">
+          <rect x="0"  y="0" width="2" height="40"/>
+          <rect x="4"  y="0" width="1" height="40"/>
+          <rect x="7"  y="0" width="3" height="40"/>
+          <rect x="12" y="0" width="1" height="40"/>
+          <rect x="15" y="0" width="2" height="40"/>
+          <rect x="19" y="0" width="1" height="40"/>
+          <rect x="22" y="0" width="3" height="40"/>
+          <rect x="27" y="0" width="1" height="40"/>
+          <rect x="30" y="0" width="2" height="40"/>
+        </g>
+      </svg>
+      <div class="wm-text">
+        <h1>CERTWATCH</h1>
+        <p class="sub">certificate-transparency monitor — passive, read-only</p>
+      </div>
+    </div>
+    <div class="run-meta">
+      <span id="modeBadge" class="mode-tag">demo</span>
+      <span class="uptime" id="uptime"></span>
+    </div>
+  </header>
+
+  <section class="readout" id="statsBar">
+    <div class="ro"><span class="ro-k">observed</span><span class="ro-v" id="statSeen">0</span></div>
+    <div class="ro"><span class="ro-k">rate</span><span class="ro-v" id="statRate">0</span><span class="ro-u">/s</span></div>
+    <div class="ro"><span class="ro-k">flagged</span><span class="ro-v flagged" id="statFlagged">0</span></div>
+    <div class="ro"><span class="ro-k">critical</span><span class="ro-v crit" id="statCrit">0</span></div>
+    <div class="ro grow"><span class="ro-k">most-targeted</span><span class="ro-v brand" id="statBrand">—</span></div>
+  </section>
+
+  <section class="controls">
+    <button id="pauseBtn" class="ctrl" aria-pressed="false">pause</button>
+    <div class="ctrl-group">
+      <label for="minScore">min score</label>
+      <input type="range" id="minScore" min="0" max="100" step="5" value="30">
+      <b id="minScoreVal">30</b>
+    </div>
+    <div class="ctrl-group">
+      <label for="sevFilter">severity</label>
+      <select id="sevFilter">
+        <option value="0">all</option>
+        <option value="30">medium and up</option>
+        <option value="50">high and up</option>
+        <option value="70">critical only</option>
+      </select>
+    </div>
+    <input type="search" id="brandFilter" placeholder="filter brand or domain" autocomplete="off">
+    <a id="exportBtn" class="ctrl" href="/api/alerts.jsonl">export ledger</a>
+  </section>
+
+  <main class="grid">
+    <section class="feed-col">
+      <div class="section-label"><span class="marker"></span>flagged domains
+        <span class="note">newest first — a score is a heuristic, never an accusation</span>
+      </div>
+      <div id="alertFeed" class="feed" aria-live="polite">
+        <div class="empty" id="emptyState">
+          <pre class="empty-tape">  no entries marked yet
+  ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈</pre>
+          <p>Listening to the certificate-transparency stream.</p>
+          <p class="muted">Every HTTPS certificate on earth scrolls past on the right. When one looks built to impersonate a brand, it stops here and gets stamped. Give it a moment.</p>
+        </div>
+      </div>
+    </section>
+
+    <aside class="side-col">
+      <div class="panel ticker-panel">
+        <div class="section-label small"><span class="marker live"></span>certificate feed
+          <span class="live-dot" id="liveDot" title="streaming"></span>
+        </div>
+        <div id="ticker" class="ticker" aria-hidden="true"></div>
+      </div>
+
+      <div class="panel map-panel">
+        <div class="section-label small"><span class="marker"></span>hosting origin</div>
+        <div id="map"></div>
+      </div>
+
+      <div class="panel staged-panel">
+        <div class="section-label small"><span class="marker"></span>staged — cert exists, host doesn't
+          <span class="tray-count" id="stagedCount">0</span>
+        </div>
+        <div id="stagedTray" class="staged"></div>
+      </div>
+    </aside>
+  </main>
+</div>
+
+<div id="detailDrawer" class="drawer" aria-hidden="true">
+  <div class="drawer-inner">
+    <button class="drawer-close" id="drawerClose" aria-label="Close">close</button>
+    <div id="drawerBody"></div>
+  </div>
+</div>
+<div id="drawerScrim" class="scrim" hidden></div>
+
+<script>window.CERTWATCH_META = {{ meta|tojson }};</script>
+<script src="{{ url_for('static', filename='vendor/socket.io.min.js') }}"></script>
+<script src="{{ url_for('static', filename='vendor/leaflet.js') }}"></script>
+<script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>
