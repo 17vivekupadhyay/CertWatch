@@ -1,0 +1,8 @@
+{
+  "_comment": "Recon mode targets. CertWatch passively maps a target's attack surface from Certificate Transparency — every subdomain that gets a cert shows up here, ranked by recon value (credentials > internal/admin > entry points > infra > non-prod). AUTHORIZATION: only list targets you are permitted to assess (your own assets, bug-bounty scope, or an engagement with written permission). This is passive OSINT — it reads public logs and never connects to, scans, or probes the hosts. Add registrable (eTLD+1) domains to 'targets'. The default set is used by demo mode.",
+  "targets": [
+    "northwind-corp.com",
+    "acme-labs.io",
+    "globex-internal.net"
+  ]
+}
