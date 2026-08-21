@@ -43,8 +43,11 @@ class Stats:
         self.started_at = time.time()
         self.total_seen = 0
         self.total_flagged = 0
+        self.total_assets = 0
         self.severity = Counter()
         self.brands = Counter()
+        self.asset_severity = Counter()
+        self.exposed_tech = Counter()
         self._buckets = deque()  # (second, count) for rate over `window`
         self.window = window
 
@@ -64,6 +67,13 @@ class Stats:
             self.severity[severity] += 1
             if brand:
                 self.brands[brand] += 1
+
+    def note_asset(self, severity, tech=None):
+        with self._lock:
+            self.total_assets += 1
+            self.asset_severity[severity] += 1
+            for t in (tech or []):
+                self.exposed_tech[t] += 1
 
     def _trim(self, now_sec):
         cutoff = now_sec - self.window
@@ -91,19 +101,24 @@ class Stats:
             return {
                 "total_seen": self.total_seen,
                 "total_flagged": self.total_flagged,
+                "total_assets": self.total_assets,
                 "rate": self._rate_nolock(),
                 "severity": dict(self.severity),
+                "asset_severity": dict(self.asset_severity),
                 "top_brands": self.brands.most_common(6),
+                "top_tech": self.exposed_tech.most_common(6),
                 "uptime": round(time.time() - self.started_at, 1),
             }
 
 
 class RingBuffers:
-    def __init__(self, alert_cap=2000, cert_cap=10000):
+    def __init__(self, alert_cap=2000, cert_cap=10000, asset_cap=2000):
         self._lock = threading.Lock()
         self.alerts = deque(maxlen=alert_cap)
         self.certs = deque(maxlen=cert_cap)
+        self.assets = deque(maxlen=asset_cap)
         self._alert_seq = 0
+        self._asset_seq = 0
 
     def add_alert(self, alert):
         with self._lock:
@@ -120,6 +135,30 @@ class RingBuffers:
                     a.update(patch)
                     return True
         return False
+
+    def add_asset(self, asset):
+        with self._lock:
+            self._asset_seq += 1
+            asset["seq"] = self._asset_seq
+            self.assets.append(asset)
+            return self._asset_seq
+
+    def update_asset(self, seq, patch):
+        with self._lock:
+            for a in reversed(self.assets):
+                if a.get("seq") == seq:
+                    a.update(patch)
+                    return True
+        return False
+
+    def recent_assets(self, since=0, limit=500):
+        with self._lock:
+            out = [a for a in self.assets if a["seq"] > since]
+        return out[-limit:]
+
+    def all_assets(self):
+        with self._lock:
+            return list(self.assets)
 
     def add_cert(self, cert):
         with self._lock:
