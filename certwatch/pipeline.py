@@ -15,7 +15,8 @@ from collections import deque
 class Pipeline(threading.Thread):
     def __init__(self, in_queue, scorer, watchlist, stats, buffers, enricher,
                  stop_event, min_score=30, record_path=None, dedupe=None,
-                 emit_alert=None):
+                 emit_alert=None, discovery_scorer=None, asset_watch=None,
+                 asset_dedupe=None, emit_asset=None):
         super().__init__(daemon=True, name="pipeline")
         self.in_queue = in_queue
         self.scorer = scorer
@@ -27,6 +28,11 @@ class Pipeline(threading.Thread):
         self.min_score = min_score
         self.dedupe = dedupe
         self.emit_alert = emit_alert or (lambda a: None)
+
+        self.discovery_scorer = discovery_scorer
+        self.asset_watch = asset_watch
+        self.asset_dedupe = asset_dedupe
+        self.emit_asset = emit_asset or (lambda a: None)
 
         self._cert_stage = deque(maxlen=500)
         self._cert_lock = threading.Lock()
@@ -60,6 +66,14 @@ class Pipeline(threading.Thread):
         if now - self._last_reload_check > 1.0:
             self._last_reload_check = now
             self.watchlist.maybe_reload()
+            if self.asset_watch is not None:
+                self.asset_watch.maybe_reload()
+
+        # Discovery: surface new subdomains of domains we own. Independent of the
+        # phishing score — a cert can be an owned asset, a phishing hit, or both.
+        if self.discovery_scorer is not None:
+            for finding in self.discovery_scorer.score_cert(rec):
+                self._handle_asset(finding, rec)
 
         result = self.scorer.score_cert(rec)
         domain = result.get("domain") or (rec["domains"][0] if rec["domains"] else "")
@@ -134,6 +148,37 @@ class Pipeline(threading.Thread):
                 self.enricher.submit_precomputed(demo_enrich, _on_enriched)
             else:
                 self.enricher.submit(target, _on_enriched)
+
+    def _handle_asset(self, finding, rec):
+        dom = finding["domain"]
+        # Dedupe: each owned subdomain is surfaced once per run (renewals repeat).
+        if self.asset_dedupe is not None:
+            is_new, _count = self.asset_dedupe.seen("asset:" + dom)
+            if not is_new:
+                return
+        finding["enrichment"] = None
+        seq = self.buffers.add_asset(finding)
+        self.stats.note_asset(finding["severity"], finding.get("tech"))
+
+        self.emit_asset(finding)
+
+        # Best-effort enrichment — does this owned host actually resolve?
+        def _on_enriched(enrichment, seq=seq):
+            self.buffers.update_asset(seq, {"enrichment": enrichment})
+            self.emit_asset({**self._asset_by_seq(seq), "_enriched": True})
+
+        if self.enricher is not None:
+            demo_enrich = rec.get("_demo_enrich")
+            if demo_enrich is not None:
+                self.enricher.submit_precomputed(demo_enrich, _on_enriched)
+            else:
+                self.enricher.submit(dom, _on_enriched)
+
+    def _asset_by_seq(self, seq):
+        for a in self.buffers.all_assets():
+            if a.get("seq") == seq:
+                return a
+        return {"seq": seq}
 
     def _alert_by_seq(self, seq):
         for a in self.buffers.all_alerts():
