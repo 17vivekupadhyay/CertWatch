@@ -106,11 +106,27 @@ _NEAR_MISSES = [
 ]
 
 
+# Subdomain templates for discovery-mode demo traffic. A mix of sensitive hosts
+# (which should fire) and ordinary public ones (which should stay routine), so
+# the discovery panel demonstrates precision the same way the phishing feed does.
+_ASSET_SUBS = [
+    "grafana.staging", "jenkins.dev", "vault.internal", "kibana.prod",
+    "gitlab.corp", "argocd.k8s", "prometheus.internal", "clickhouse-dev.aws",
+    "postgres.staging", "redis.internal", "admin.uat", "vpn.corp",
+    "backup.db", "phpmyadmin.dev", "sonarqube.ci", "nexus.build",
+    "elastic.logging", "rabbitmq.internal", "api-internal.staging", "sso.corp",
+    # ordinary public hosts — should read as routine, not alarming
+    "www", "cdn", "static.assets", "mail", "docs", "status", "shop",
+    "blog", "support", "api", "app", "portal",
+]
+
+
 class DemoGenerator:
-    def __init__(self, seed=None, rate=25.0):
+    def __init__(self, seed=None, rate=25.0, owned_domains=None):
         self.rng = random.Random(seed)
         self.rate = max(0.5, rate)
         self._counter = itertools.count(1)
+        self.owned_domains = list(owned_domains or [])
 
     # -- building blocks --------------------------------------------------
     def _legit_domain(self):
@@ -201,6 +217,18 @@ class DemoGenerator:
         domains = list(self.rng.choice(_NEAR_MISSES))
         return self._record(domains, self.rng.choice(_ISSUERS))
 
+    def _asset_record(self):
+        """A cert for a subdomain of one of the owned domains (discovery mode)."""
+        owned = self.rng.choice(self.owned_domains)
+        sub = self.rng.choice(_ASSET_SUBS)
+        domain = f"{sub}.{owned}"
+        domains = [domain]
+        if self.rng.random() < 0.25:
+            domains = [f"*.{sub.split('.')[-1]}.{owned}", domain]
+        rec = self._record(domains, self.rng.choice(_FREE_ISSUERS))
+        rec["_demo_enrich"] = self._synth_enrich()
+        return rec
+
     def _record(self, domains, issuer):
         now = time.time()
         # cert issued a few seconds to a couple minutes ago
@@ -220,7 +248,11 @@ class DemoGenerator:
         r = self.rng.random()
         if r < 1 / 200:
             return self._attack_record()
-        if r < 1 / 200 + 1 / 60:
+        # When discovery mode is on, plant owned-subdomain certs at ~1/50 so the
+        # discovery panel populates at a watchable rate.
+        if self.owned_domains and r < 1 / 200 + 1 / 50:
+            return self._asset_record()
+        if r < 1 / 200 + 1 / 50 + 1 / 60:
             return self._near_miss_record()
         return self._legit_record()
 

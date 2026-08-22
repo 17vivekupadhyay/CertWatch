@@ -16,6 +16,7 @@ import webbrowser
 
 from certwatch.detect.brands import Watchlist
 from certwatch.detect.score import Scorer
+from certwatch.detect.discovery import AssetWatch, DiscoveryScorer
 from certwatch.state import Stats, RingBuffers, TTLCache
 from certwatch.enrich import Enricher
 from certwatch.pipeline import Pipeline
@@ -37,6 +38,12 @@ def parse_args(argv=None):
                    help="Comma-separated CT log names to follow (default: auto-select 3)")
     p.add_argument("--brands", type=str, default=os.path.join(HERE, "brands.json"),
                    help="Path to brands.json")
+    p.add_argument("--recon", "--discovery", dest="discovery", action="store_true",
+                   help="Enable recon mode: passively map a target's attack surface "
+                        "(new subdomains) from CT. Authorized targets only.")
+    p.add_argument("--assets", "--targets", dest="assets", type=str,
+                   default=os.path.join(HERE, "assets.json"),
+                   help="Path to targets file (assets.json) for --recon")
     p.add_argument("--min-score", type=int, default=30,
                    help="Minimum score to record as an alert (default: 30)")
     p.add_argument("--record", metavar="PATH", help="Append all alerts to a JSONL file")
@@ -61,7 +68,7 @@ def _demo_feeder(gen, q, stats, stop_event):
         stats.note_seen()
 
 
-def _start_source(args, q, stats, stop_event):
+def _start_source(args, q, stats, stop_event, owned_domains=None):
     """Start the chosen data source. Returns (mode_label, list_of_threads)."""
     threads = []
 
@@ -107,7 +114,7 @@ def _start_source(args, q, stats, stop_event):
 
     # Default: demo mode.
     from certwatch.sources.demo import DemoGenerator
-    gen = DemoGenerator(seed=args.seed, rate=args.rate)
+    gen = DemoGenerator(seed=args.seed, rate=args.rate, owned_domains=owned_domains)
     t = threading.Thread(target=_demo_feeder, args=(gen, q, stats, stop_event), daemon=True)
     t.start()
     threads.append(t)
@@ -142,26 +149,43 @@ def main(argv=None):
     q = queue.Queue(maxsize=50000)
     stop_event = threading.Event()
 
+    # Optional discovery mode.
+    asset_watch = None
+    discovery_scorer = None
+    asset_dedupe = None
+    owned_domains = []
+    if args.discovery:
+        if not os.path.exists(args.assets):
+            print(f"assets file not found: {args.assets}", file=sys.stderr)
+            return 2
+        asset_watch = AssetWatch(args.assets)
+        discovery_scorer = DiscoveryScorer(asset_watch)
+        asset_dedupe = TTLCache(ttl=3600)
+        owned_domains = sorted(asset_watch.all_domains())
+
     meta = {
         "mode": None,
         "min_score": args.min_score,
         "brands": sorted(b.name for b in watchlist.all_brands()),
+        "discovery": bool(args.discovery),
+        "owned_domains": owned_domains,
         "started_at": time.time(),
     }
 
     pipeline_ref = [None]
-    app, socketio, start_background, alert_emitter = create_app(
+    app, socketio, start_background, alert_emitter, asset_emitter = create_app(
         stats, buffers, pipeline_ref, meta)
 
     pipeline = Pipeline(
         q, scorer, watchlist, stats, buffers, enricher, stop_event,
         min_score=args.min_score, record_path=args.record, dedupe=dedupe,
-        emit_alert=alert_emitter,
+        emit_alert=alert_emitter, discovery_scorer=discovery_scorer,
+        asset_watch=asset_watch, asset_dedupe=asset_dedupe, emit_asset=asset_emitter,
     )
     pipeline.start()
     pipeline_ref[0] = pipeline
 
-    mode, _threads = _start_source(args, q, stats, stop_event)
+    mode, _threads = _start_source(args, q, stats, stop_event, owned_domains=owned_domains)
     meta["mode"] = mode
 
     start_background()
