@@ -54,6 +54,30 @@ def create_app(stats, buffers, pipeline_ref, meta):
         return Response(lines + "\n", mimetype="application/x-ndjson",
                         headers={"Content-Disposition": "attachment; filename=certwatch-alerts.jsonl"})
 
+    @app.route("/api/assets")
+    def api_assets():
+        since = int(request.args.get("since", 0))
+        return jsonify(buffers.recent_assets(since=since))
+
+    @app.route("/api/assets.jsonl")
+    def api_assets_jsonl():
+        lines = "\n".join(json.dumps(a, default=str) for a in buffers.all_assets())
+        return Response(lines + "\n", mimetype="application/x-ndjson",
+                        headers={"Content-Disposition": "attachment; filename=certwatch-assets.jsonl"})
+
+    @app.route("/api/assets.txt")
+    def api_assets_txt():
+        # Plain hostname list — the recon deliverable. Deduped, highest recon
+        # value first. Passive output; connecting to these is out of scope here.
+        seen, rows = set(), []
+        for a in sorted(buffers.all_assets(), key=lambda x: x.get("score", 0), reverse=True):
+            d = a.get("domain")
+            if d and d not in seen:
+                seen.add(d)
+                rows.append(d)
+        return Response("\n".join(rows) + "\n", mimetype="text/plain",
+                        headers={"Content-Disposition": "attachment; filename=certwatch-hosts.txt"})
+
     @app.route("/api/meta")
     def api_meta():
         return jsonify(meta)
@@ -68,6 +92,7 @@ def create_app(stats, buffers, pipeline_ref, meta):
         socketio.emit("stats", snap)
         socketio.emit("snapshot", {
             "alerts": buffers.recent_alerts(min_score=0, limit=200),
+            "assets": buffers.recent_assets(limit=200) if meta.get("discovery") else [],
             "meta": meta,
         })
 
@@ -94,8 +119,11 @@ def create_app(stats, buffers, pipeline_ref, meta):
         # Called from the pipeline thread; SocketIO.emit is thread-safe.
         socketio.emit("alert", alert)
 
+    def asset_emitter(asset):
+        socketio.emit("asset", asset)
+
     def start_background():
         socketio.start_background_task(cert_emitter)
         socketio.start_background_task(stats_emitter)
 
-    return app, socketio, start_background, alert_emitter
+    return app, socketio, start_background, alert_emitter, asset_emitter
