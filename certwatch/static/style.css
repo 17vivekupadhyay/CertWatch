@@ -232,6 +232,39 @@ input[type=search]::placeholder { color: var(--ink-faint); }
 .staged-item .stag { color: var(--crit); font-size: 10px; white-space: nowrap; letter-spacing: 0.5px; }
 .staged-empty { color: var(--ink-faint); font-size: 11.5px; padding: 10px 4px; }
 
+/* ---------- discovery panel ---------- */
+.section-label .marker.tech { background: var(--signal); }
+.tray-count.tech { background: var(--signal); color: var(--bg); }
+.disco-note { margin: -2px 0 6px; font-size: 11px; color: var(--ink-faint); line-height: 1.45; }
+.disco-note b { color: var(--signal); }
+.disco-auth { margin: 0 0 11px; font-size: 10px; color: var(--ink-faint); line-height: 1.4;
+  border-left: 2px solid var(--rule); padding-left: 7px; }
+.hosts-dl { margin-left: auto; font-size: 10px; color: var(--signal); text-decoration: none;
+  border: 1px solid var(--signal); padding: 1px 6px; letter-spacing: 0.3px; }
+.hosts-dl:hover { background: var(--signal); color: var(--bg); }
+.section-label .tray-count.tech + .hosts-dl, .hosts-dl + .tray-count { margin-left: 8px; }
+.discovery { max-height: 340px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; }
+.asset-item {
+  background: var(--bg-2); border-left: 3px solid var(--med); padding: 8px 11px;
+  cursor: pointer;
+}
+.asset-item:hover { background: var(--panel-2); }
+.asset-item[data-sev="critical"] { border-left-color: var(--crit); }
+.asset-item[data-sev="high"] { border-left-color: var(--high); }
+.asset-item[data-sev="medium"] { border-left-color: var(--signal); }
+.asset-top { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.asset-dom { font-size: 12px; word-break: break-all; }
+.asset-dom .risk { color: var(--crit); font-weight: 700; }
+.asset-item[data-sev="high"] .asset-dom .risk { color: var(--high); }
+.asset-item[data-sev="medium"] .asset-dom .risk { color: var(--signal); }
+.asset-score { font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--ink-dim); flex: none; }
+.asset-meta { margin-top: 5px; display: flex; flex-wrap: wrap; gap: 5px; align-items: center; font-size: 10.5px; color: var(--ink-faint); }
+.atag { background: rgba(255,255,255,0.05); border: 1px solid var(--rule); padding: 1px 6px; color: var(--ink-dim); letter-spacing: 0.3px; }
+.atag.tech { border-color: var(--signal); color: var(--signal); }
+.atag.wild { border-color: var(--high); color: var(--high); }
+.asset-age { margin-left: auto; }
+.asset-age .live { color: var(--crit); }
+
 /* ---------- detail drawer ---------- */
 .drawer {
   position: fixed; top: 0; right: 0; height: 100%; width: min(540px, 95vw);

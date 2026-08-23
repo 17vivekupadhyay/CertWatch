@@ -81,6 +81,18 @@
     </section>
 
     <aside class="side-col">
+      <div class="panel discovery-panel" id="discoveryPanel" hidden>
+        <div class="section-label small"><span class="marker tech"></span>recon — attack surface
+          <a class="hosts-dl" id="hostsDl" href="/api/assets.txt" title="download discovered hostnames">hosts.txt</a>
+          <span class="tray-count tech" id="assetCount">0</span>
+        </div>
+        <p class="disco-note">Subdomains of <b id="targetLabel">the target(s)</b>, mapped passively from CT as their certs appear. Highest recon value first — credentials, internal/admin, entry points, then infra and non-prod.</p>
+        <p class="disco-auth">Passive OSINT — reads public logs, never touches the hosts. Authorized targets only.</p>
+        <div id="discoveryFeed" class="discovery">
+          <div class="staged-empty" id="discoveryEmpty">Watching the target's domains. Every subdomain that gets a certificate surfaces here — including staging, internal, and infra hosts that weren't meant to be found.</div>
+        </div>
+      </div>
+
       <div class="panel ticker-panel">
         <div class="section-label small"><span class="marker live"></span>certificate feed
           <span class="live-dot" id="liveDot" title="streaming"></span>

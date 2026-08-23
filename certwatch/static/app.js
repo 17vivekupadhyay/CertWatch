@@ -24,6 +24,9 @@
   var brandQuery = "";
   var markers = new Map();     // seq -> leaflet marker
   var MAX_ALERTS = 600;
+  var assetsMap = new Map();   // seq -> asset finding (discovery mode)
+  var assetOrder = [];         // asset seqs, newest first
+  var DISCOVERY = !!META.discovery;
 
   // --- elements ---
   var feed = document.getElementById("alertFeed");
@@ -328,12 +331,132 @@
   }
 
   // ---------------------------------------------------------------------
+  // Discovery mode (asset findings)
+  // ---------------------------------------------------------------------
+  var discoveryFeed = document.getElementById("discoveryFeed");
+  var discoveryEmpty = document.getElementById("discoveryEmpty");
+  var assetCountEl = document.getElementById("assetCount");
+
+  // Subdomain labels the discovery scorer treats as sensitive — used only to
+  // visually mark them in the rendered hostname.
+  var RISK_LABELS = ["dev","develop","development","staging","stage","stg","uat","qa","test",
+    "testing","sandbox","sbx","preprod","beta","canary","internal","intranet","corp","private",
+    "admin","adminpanel","backoffice","vpn","ldap","vault","secret","secrets","kms","backup",
+    "backups","dump","dumps","jenkins","gitlab","grafana","kibana","prometheus","argocd","argo",
+    "rancher","k8s","kubernetes","nexus","artifactory","sonar","sonarqube","splunk","elastic",
+    "elasticsearch","rabbitmq","kafka","redis","postgres","postgresql","mysql","mongo","mongodb",
+    "clickhouse","cassandra","db","database","phpmyadmin","adminer","pgadmin","webmail","owa"];
+
+  function markHost(domain) {
+    return domain.split(".").map(function (lab) {
+      return RISK_LABELS.indexOf(lab) >= 0 ? '<span class="risk">' + esc(lab) + "</span>" : esc(lab);
+    }).join(".");
+  }
+
+  function assetItemHTML(a) {
+    var tags = (a.tags || []).map(function (t) { return '<span class="atag">' + esc(t) + "</span>"; });
+    (a.tech || []).forEach(function (t) { tags.unshift('<span class="atag tech">' + esc(t) + "</span>"); });
+    if (a.is_wildcard) tags.push('<span class="atag wild">wildcard</span>');
+    return '<div class="asset-top"><span class="asset-dom">' + markHost(a.domain) + "</span>" +
+      '<span class="asset-score">' + a.score + "</span></div>" +
+      '<div class="asset-meta">' + tags.join("") +
+        '<span class="asset-age">' + assetAge(a) + "</span></div>";
+  }
+
+  function assetAge(a) {
+    var e = a.enrichment;
+    if (e && e.resolves === false) return "no public DNS";
+    var geo = e && e.geo;
+    if (geo && geo.country) return '<span class="live">resolves · ' + esc(geo.country) + "</span>";
+    if (!a.not_before) return "";
+    var secs = Math.max(0, Math.floor(Date.now() / 1000 - a.not_before));
+    return secs < 90 ? secs + "s ago" : secs < 5400 ? Math.floor(secs / 60) + "m ago" : Math.floor(secs / 3600) + "h ago";
+  }
+
+  function ingestAsset(a) {
+    var existed = assetsMap.has(a.seq);
+    assetsMap.set(a.seq, a);
+    if (existed) {
+      var el = discoveryFeed.querySelector('.asset-item[data-seq="' + a.seq + '"]');
+      if (el) el.innerHTML = assetItemHTML(a);
+      return;
+    }
+    if (discoveryEmpty) { discoveryEmpty.remove(); discoveryEmpty = null; }
+    assetOrder.unshift(a.seq);
+    var node = document.createElement("div");
+    node.className = "asset-item";
+    node.setAttribute("data-sev", a.severity);
+    node.setAttribute("data-seq", a.seq);
+    node.setAttribute("tabindex", "0");
+    node.setAttribute("role", "button");
+    node.innerHTML = assetItemHTML(a);
+    node.addEventListener("click", function () { openAssetDrawer(a.seq); });
+    node.addEventListener("keydown", function (e) {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openAssetDrawer(a.seq); }
+    });
+    // Insert keeping newest-first but sensitive-higher within the newest.
+    discoveryFeed.insertBefore(node, discoveryFeed.firstChild);
+    while (discoveryFeed.children.length > 80) discoveryFeed.removeChild(discoveryFeed.lastChild);
+    assetCountEl.textContent = assetsMap.size;
+  }
+
+  function openAssetDrawer(seq) {
+    var a = assetsMap.get(seq);
+    if (!a) return;
+    var e = a.enrichment || {}; var geo = e.geo || {};
+    var tags = (a.tags || []).concat((a.tech || [])).join(", ") || "—";
+    var dnsLine = e.resolves === false ? "does not resolve publicly"
+      : e.resolves ? (e.ips || []).join(", ") : "checking…";
+    drawerBody.innerHTML = '' +
+      '<div class="dk">recon target</div>' +
+      '<div class="d-domain">' + markHost(a.domain) + "</div>" +
+      '<div class="d-score-row"><span class="d-score" style="color:' + assetColor(a.severity) + '">' +
+        a.score + '</span><span class="d-sev ' + assetSevClass(a.severity) + '">' + esc(a.severity) + " recon value</span></div>" +
+      '<div class="d-note">Subdomain of a target domain, seen in a public CT log. The <em>name</em> alone reveals environment, tech stack, and entry points. Passive OSINT only — CertWatch never connects to, scans, or probes this host. Use against authorized targets only.</div>' +
+      '<div class="dk">what the name reveals</div><div class="kv">' +
+        '<div class="k">target domain</div><div class="v">' + esc(a.owned_domain) + "</div>" +
+        '<div class="k">subdomain</div><div class="v">' + esc(a.subdomain) + "</div>" +
+        '<div class="k">signals</div><div class="v">' + esc(tags) + "</div>" +
+        '<div class="k">wildcard</div><div class="v">' + (a.is_wildcard ? "yes (*.)": "no") + "</div>" +
+      "</div>" +
+      '<div class="dk">does it resolve?</div><div class="kv">' +
+        '<div class="k">DNS</div><div class="v">' + esc(dnsLine) + "</div>" +
+        '<div class="k">hosting</div><div class="v">' + (geo.country ? esc((geo.city ? geo.city + ", " : "") + geo.country) : "—") + "</div>" +
+        '<div class="k">ASN</div><div class="v">' + esc(geo.asn || "—") + "</div>" +
+      "</div>" +
+      '<div class="dk">certificate</div><div class="kv">' +
+        '<div class="k">issuer</div><div class="v">' + esc(a.issuer || "—") + "</div>" +
+        '<div class="k">source log</div><div class="v">' + esc(a.log || "—") + "</div>" +
+        '<div class="k">type</div><div class="v">' + (a.is_precert ? "precertificate" : "final cert") + "</div>" +
+      "</div>" +
+      '<div class="dk">raw record</div><div class="raw">' + esc(JSON.stringify(a, null, 2)) + "</div>" +
+      '<button class="ctrl copy-btn">copy json</button>';
+    drawer.classList.add("open");
+    drawer.setAttribute("aria-hidden", "false");
+    scrim.hidden = false;
+    var cb = drawerBody.querySelector(".copy-btn");
+    if (cb) cb.addEventListener("click", function () {
+      navigator.clipboard && navigator.clipboard.writeText(JSON.stringify(a, null, 2));
+      cb.textContent = "copied";
+    });
+    document.getElementById("drawerClose").focus();
+  }
+  function assetColor(sev) {
+    return sev === "critical" ? "#e0464b" : sev === "high" ? "#e0902f" : sev === "medium" ? "#34a596" : "#6f7c8f";
+  }
+  function assetSevClass(sev) {
+    return sev === "critical" ? "critical" : sev === "high" ? "high" : "medium";
+  }
+
+  // ---------------------------------------------------------------------
   // Socket wiring
   // ---------------------------------------------------------------------
   socket.on("connect", function () {});
   socket.on("snapshot", function (data) {
     (data.alerts || []).forEach(function (a) { ingestAlert(a, false); });
+    if (DISCOVERY) (data.assets || []).forEach(function (a) { ingestAsset(a); });
   });
+  socket.on("asset", function (a) { if (DISCOVERY) ingestAsset(a); });
   socket.on("stats", function (s) { renderStats(s); });
   socket.on("cert", function (batch) {
     if (paused) { tickerBacklog = tickerBacklog.concat(batch).slice(-200); return; }
@@ -417,6 +540,16 @@
   }
 
   // ---------------------------------------------------------------------
+  if (DISCOVERY) {
+    var dp = document.getElementById("discoveryPanel");
+    if (dp) dp.hidden = false;
+    var tl = document.getElementById("targetLabel");
+    var owned = META.owned_domains || [];
+    if (tl && owned.length) {
+      tl.textContent = owned.length <= 3 ? owned.join(", ")
+        : owned.slice(0, 2).join(", ") + " +" + (owned.length - 2) + " more";
+    }
+  }
   initMap();
   updateStaged();
 })();
