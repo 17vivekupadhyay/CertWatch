@@ -28,6 +28,24 @@ No API keys. No database. No root. No cloud account. `python run.py` produces a 
 
 ---
 
+## Two modes over the same firehose
+
+The same public feed that exposes phishing domains also maps any target's **attack surface**. CertWatch runs two detectors over one ingest pipeline:
+
+- **Phishing mode** (default) — watch for domains impersonating *someone else's* brand (`paypa1-secure.com`, `microsoft0nline.com`).
+- **Recon mode** (`--recon`) — passively enumerate a target's subdomains from CT and rank them by recon value. The moment `grafana.staging.target.com` or `vault.internal.target.com` gets a certificate, its name is published to a permanent public log — even if the host is firewalled and unlinked. The name alone leaks environment (dev/staging), tooling (Grafana, Jenkins, ClickHouse), auth entry points (VPN, SSO, OWA), and topology. This is the same passive-OSINT technique as `amass`, `subfinder`, and `crt.sh`, with live scoring on top. Priority order: **credentials > internal/admin > entry points > infra/tooling > non-prod > routine.**
+
+```bash
+python run.py --recon                          # demo target traffic, offline
+python run.py --live --recon                   # a target's real subdomains as they appear in CT
+```
+
+List targets in [`assets.json`](assets.json). Findings appear in their own panel (highest recon value first, risky labels highlighted, revealed tech tagged), and the discovered hostnames export as a plain list at `/api/assets.txt` to feed into other tooling. It reuses the entire parse/dedupe/enrich pipeline — it's a second scorer keyed on a target watchlist instead of a brand watchlist.
+
+> **Authorization.** Recon mode is for targets you're permitted to assess — your own assets, published bug-bounty scope, or an engagement with written permission. CertWatch is strictly passive: it reads public CT logs and does a DNS lookup for enrichment. It never connects to, scans, or probes the discovered hosts, and does no exploitation or takedown.
+
+---
+
 ## Certificate Transparency in three sentences
 
 1. When a Certificate Authority issues an HTTPS certificate, it must log that certificate to public append-only ledgers called Certificate Transparency logs, and modern browsers reject certificates that aren't logged.
@@ -113,6 +131,8 @@ python run.py [OPTIONS]
   --certstream URL    Use a CertStream-compatible websocket instead of polling
   --logs TEXT         Comma-separated CT log names to follow (default: auto-select 3)
   --brands PATH       Path to brands.json (default: ./brands.json)
+  --recon             Recon mode: passively map a target's attack surface from CT
+  --assets PATH       Path to targets file (assets.json) for --recon (default: ./assets.json)
   --min-score INT     Minimum score to record as an alert (default: 30)
   --record PATH       Append all alerts to a JSONL file
   --replay PATH       Replay a recorded JSONL at original timing
